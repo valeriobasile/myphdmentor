@@ -5,6 +5,10 @@ import sys
 import numpy as np
 import json
 from scipy.spatial.distance import cosine
+from scipy.optimize import linear_sum_assignment
+#import hungarian_algorithm
+from random import random
+import numpy as np
 
 def onehot(valuestring, values):
     '''
@@ -27,11 +31,19 @@ def similarity(mentor, mentee, weightvector):
     '''
     return 1 - cosine(mentor['features'], mentee['features'], weightvector)
 
+# read the weights from config file and transform them into a numeric vector
+with open("weights.json") as f:
+    weights = json.load(f)
+weightlist = [weights['availability_time']]
+weightlist.extend([weights['availability_medium'] for i in range (5)])
+weightlist.extend(weights['questions'])
+weightvector = np.array(weightlist)
+
 '''
 This dict will contain the people that replied to the survey, divided by
 role. People who make themselves available for both roles end up in both lists.
 '''
-people = {'mentor':[], 'mentee':[]}
+people = {level: {'mentor':[], 'mentee':[]} for level in [1,2]}
 
 '''
 command syntax:
@@ -78,30 +90,31 @@ for row in df.itertuples():
     if participation == 'No':
         continue
 
-    # 
+
+    if level == 0 and role in ['Mentee', 'Both mentee and mentor']:
+        people[1]['mentee'].append(person)
+    elif level == 1 and role in ['Mentee', 'Both mentee and mentor']:
+        people[2]['mentee'].append(person)
+    
+    if level == 1 and role in ['Mentor', 'Both mentee and mentor']:
+        people[1]['mentor'].append(person)
     if role in ['Mentor', 'Both mentee and mentor']:
-        people['mentor'].append(person)
-    if role in ['Mentee', 'Both mentee and mentor']:
-        people['mentee'].append(person)
+        people[2]['mentor'].append(person)
 
-# read the weights from config file and transform them into a numeric vector
-with open("weights.json") as f:
-    weights = json.load(f)
-weightlist = [weights['availability_time']]
-weightlist.extend([weights['availability_medium'] for i in range (5)])
-weightlist.extend(weights['questions'])
-weightvector = np.array(weightlist)
 
-'''
-just for debug at the moment:
-print a list of pairs with their similarity scores.
-'''
-for mentor in people['mentor']:
-    for mentee in people['mentee']:
-        # CHECK: is this constraint correct/too strict?
-        if mentee['level'] < mentor['level']:
-            print (
-                "{0:.4f}".format(similarity(mentor, mentee, weightvector)), 
-                mentor['email'], 
-                mentee['email'])
+# build the bipartite graph cost matrix
+for level in [1, 2]:
+    M = np.zeros((len(people[level]['mentee']), len(people[level]['mentor'])))
+    for e, mentee in enumerate(people[level]['mentee']):
+        for o, mentor in enumerate(people[level]['mentor']):
+            if mentor['email'] != mentee['email']:
+                M[e][o] = similarity(mentor, mentee, weightvector)
+
+    # matching time
+    row_ind, col_ind = linear_sum_assignment(M, maximize=True)
+    with open("matching_{0}.csv".format(level), "w") as fo:
+        fo.write("mentee,mentor\n")
+        for e, o in zip(row_ind, col_ind):
+            fo.write("{0},{1}\n".format(people[level]['mentee'][e]['email'], people[level]['mentor'][o]['email']))
+
 

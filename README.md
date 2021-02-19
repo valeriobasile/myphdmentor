@@ -10,8 +10,5 @@ Lo script ha bisogno di pandas (per leggere il csv), numpy (per i vettori), e sc
 
 I pesi per i fattori sono modificabili dal file weights.json
 
-L'output è costituito da due file CSV rispettivamente per i due livelli di matching:
-
- * *matching_1.csv*: matching tra master student e PhD student
- * *matching_2.csv*: matching tra PhD student e PhD graduate
+L'output è costituito da un file CSV *matching.csv* con due colonne (*mentee* e *mentor*) contenenti rispettivamente le email delle due persone accoppiate dall'algoritmo.
  

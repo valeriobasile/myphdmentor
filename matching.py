@@ -10,6 +10,21 @@ from scipy.optimize import linear_sum_assignment
 from random import random
 import numpy as np
 
+PAIRS = [
+('A master student','A PhD Student'),
+('A master student','A PhD Student at the first year'),
+('A PhD Student','A PhD Student'),
+('A PhD Student','A PhD Student at the second year'),
+('A PhD Student','A PhD Student at least at the third year'),
+('A PhD Student','A PhD graduate'),
+('A PhD Student at the first year','A PhD Student'),
+('A PhD Student at the first year','A PhD Student at the second year'),
+('A PhD Student at the first year','A PhD Student at least at the third year'),
+('A PhD Student at the second year','A PhD Student at least at the third year'),
+('A PhD Student at the second year','A PhD graduate'),
+('A PhD Student at least at the third year','A PhD graduate')
+]
+
 def onehot(valuestring, values):
     '''
     A function to translate multiple-value items into one-hot encoded vectors.
@@ -29,6 +44,12 @@ def similarity(mentor, mentee, weightvector):
     '''
     Scipy has implemented weighted cosine distance, so we use that.
     '''
+#    if mentor['level']<=mentee['level']:
+#        return -1.0
+    if mentor['email']==mentee['email']:
+        return -1.0
+    if not (mentee['level'],mentor['level']) in PAIRS:
+        return -1.0
     return 1 - cosine(mentor['features'], mentee['features'], weightvector)
 
 # read the weights from config file and transform them into a numeric vector
@@ -43,7 +64,7 @@ weightvector = np.array(weightlist)
 This dict will contain the people that replied to the survey, divided by
 role. People who make themselves available for both roles end up in both lists.
 '''
-people = {level: {'mentor':[], 'mentee':[]} for level in [1,2]}
+people = {'mentor':[], 'mentee':[]}
 
 '''
 command syntax:
@@ -54,17 +75,20 @@ df = pd.read_csv(sys.argv[1])
 # parse the lines one by one
 for row in df.itertuples():
     email = row[2]
-    level = scalar(row[5], [
-        'A master student',
-        'A PhD Student', 
-        'A PhD graduate'])
-    participation = row[21]
-    role = row[22] 
-    availability_time = scalar(row[23], [
+#    level = scalar(row[6], [
+#        'A master student',
+#        'A PhD Student at the first year',
+#        'A PhD Student at the second year',
+#        'A PhD Student at least at the third year',       
+#        'A PhD Student',
+#        'A PhD graduate'])
+    level = row[6]
+    role = row[9] 
+    availability_time = scalar(row[10], [
         '1 to 3 hours', 
         '3 to 5 hours', 
         'more than 5 hours'])
-    availability_medium = onehot(row[24], [
+    availability_medium = onehot(row[11], [
         'Through phone calls',
         'Through face to face meetings',
         'Through social media',
@@ -72,7 +96,7 @@ for row in df.itertuples():
         'Through emails'])
 
     # "interests" are the answers to the final questions used for the matching
-    interests = [int(row[column][0]) for column in range(25, 38)]
+    interests = [int(row[column][0]) for column in range(12, 21)]
 
     '''
     interests are transformed into a *normalized* vector of features to 
@@ -83,38 +107,24 @@ for row in df.itertuples():
     features.extend(interests)
     features = np.array(features)
     features = features/np.linalg.norm(features)
-    
     person = {'email':email, 'level':level, 'features': features}
 
-    # we only want people who want to participate
-    if participation == 'No':
-        continue
+    if role in ['Mentee', 'Both mentee and mentor', 'Mentor and Mentee (Only for PhD students)']:
+        people['mentee'].append(person)
+    if role in ['Mentor', 'Both mentee and mentor', 'Mentor and Mentee (Only for PhD students)']:
+        people['mentor'].append(person)
 
-
-    if level == 0 and role in ['Mentee', 'Both mentee and mentor']:
-        people[1]['mentee'].append(person)
-    elif level == 1 and role in ['Mentee', 'Both mentee and mentor']:
-        people[2]['mentee'].append(person)
-    
-    if level == 1 and role in ['Mentor', 'Both mentee and mentor']:
-        people[1]['mentor'].append(person)
-    if role in ['Mentor', 'Both mentee and mentor']:
-        people[2]['mentor'].append(person)
-
-
-# build the bipartite graph cost matrix
-for level in [1, 2]:
-    M = np.zeros((len(people[level]['mentee']), len(people[level]['mentor'])))
-    for e, mentee in enumerate(people[level]['mentee']):
-        for o, mentor in enumerate(people[level]['mentor']):
-            if mentor['email'] != mentee['email']:
-                M[e][o] = similarity(mentor, mentee, weightvector)
-
-    # matching time
-    row_ind, col_ind = linear_sum_assignment(M, maximize=True)
-    with open("matching_{0}.csv".format(level), "w") as fo:
-        fo.write("mentee,mentor\n")
-        for e, o in zip(row_ind, col_ind):
-            fo.write("{0},{1}\n".format(people[level]['mentee'][e]['email'], people[level]['mentor'][o]['email']))
+M = np.zeros((len(people['mentee']), len(people['mentor'])))
+for e, mentee in enumerate(people['mentee']):
+    for o, mentor in enumerate(people['mentor']):
+        M[e][o] = similarity(mentor, mentee, weightvector)
+            
+# matching time
+row_ind, col_ind = linear_sum_assignment(M, maximize=True)
+with open("matching.csv", "w") as fo:
+    fo.write("mentee,mentor\n")
+    for e, o in zip(row_ind, col_ind):
+        if M[e][o] > -1:
+            fo.write("{0},{1}\n".format(people['mentee'][e]['email'], people['mentor'][o]['email']))
 
 

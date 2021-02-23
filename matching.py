@@ -6,7 +6,6 @@ import numpy as np
 import json
 from scipy.spatial.distance import cosine
 from scipy.optimize import linear_sum_assignment
-#import hungarian_algorithm
 from random import random
 import numpy as np
 
@@ -44,8 +43,6 @@ def similarity(mentor, mentee, weightvector):
     '''
     Scipy has implemented weighted cosine distance, so we use that.
     '''
-#    if mentor['level']<=mentee['level']:
-#        return -1.0
     if mentor['email']==mentee['email']:
         return -1.0
     if not (mentee['level'],mentor['level']) in PAIRS:
@@ -66,22 +63,13 @@ role. People who make themselves available for both roles end up in both lists.
 '''
 people = {'mentor':[], 'mentee':[]}
 
-'''
-command syntax:
-./parse.py CSV_DOWNLOADED_FROM_GOOGLE_DOCS
-'''
+
 df = pd.read_csv(sys.argv[1])
 
 # parse the lines one by one
 for row in df.itertuples():
-    email = row[2]
-#    level = scalar(row[6], [
-#        'A master student',
-#        'A PhD Student at the first year',
-#        'A PhD Student at the second year',
-#        'A PhD Student at least at the third year',       
-#        'A PhD Student',
-#        'A PhD graduate'])
+    email = row[2].strip()
+    name = row[4].strip()+' '+row[5].strip()
     level = row[6]
     role = row[9] 
     availability_time = scalar(row[10], [
@@ -106,14 +94,21 @@ for row in df.itertuples():
     features.extend(availability_medium)
     features.extend(interests)
     features = np.array(features)
+    # normalization
     features = features/np.linalg.norm(features)
-    person = {'email':email, 'level':level, 'features': features}
+    person = {
+        'name':name, 
+        'email':email, 
+        'level':level, 
+        'features': features
+        }
 
     if role in ['Mentee', 'Both mentee and mentor', 'Mentor and Mentee (Only for PhD students)']:
         people['mentee'].append(person)
     if role in ['Mentor', 'Both mentee and mentor', 'Mentor and Mentee (Only for PhD students)']:
         people['mentor'].append(person)
 
+# creating the matrix
 M = np.zeros((len(people['mentee']), len(people['mentor'])))
 for e, mentee in enumerate(people['mentee']):
     for o, mentor in enumerate(people['mentor']):
@@ -121,10 +116,21 @@ for e, mentee in enumerate(people['mentee']):
             
 # matching time
 row_ind, col_ind = linear_sum_assignment(M, maximize=True)
-with open("matching.csv", "w") as fo:
-    fo.write("mentee,mentor\n")
-    for e, o in zip(row_ind, col_ind):
-        if M[e][o] > -1:
-            fo.write("{0},{1}\n".format(people['mentee'][e]['email'], people['mentor'][o]['email']))
 
+# write CSV
+matching = {
+    'mentee':[],
+    'mentee email':[],
+    'mentor':[],
+    'mentor email':[]}
+    
+for e, o in zip(row_ind, col_ind):
+    if M[e][o] > -1:
+        matching['mentee'].append(people['mentee'][e]['name'])
+        matching['mentee email'].append(people['mentee'][e]['email'])
+        matching['mentor'].append(people['mentor'][e]['name'])
+        matching['mentor email'].append(people['mentor'][e]['email'])
+
+matching_df = pd.DataFrame(matching)
+matching_df.to_csv("matching.csv", index=False)
 

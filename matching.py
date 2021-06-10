@@ -9,19 +9,26 @@ from scipy.optimize import linear_sum_assignment
 from random import random
 import numpy as np
 
+FIELDS = [
+'Physical Sciences and Engineering (Physics, Mathematics, Chemistry etc)',
+'Life Sciences (Biochemistry, Biology, Pharmaceutical Sciences, Medicine etc)',
+'Social Sciences (Law, Economics, Psychology etc)',
+'Humanities (Literature, History, Philosophy etc)',
+'Design and architecture'
+]
 PAIRS = [
 ('A master student','A PhD Student'),
-('A master student','A PhD Student at the first year'),
+('A master student','A PhD Student in the first year'),
 ('A PhD Student','A PhD Student'),
-('A PhD Student','A PhD Student at the second year'),
-('A PhD Student','A PhD Student at least at the third year'),
-('A PhD Student','A PhD graduate'),
-('A PhD Student at the first year','A PhD Student'),
-('A PhD Student at the first year','A PhD Student at the second year'),
-('A PhD Student at the first year','A PhD Student at least at the third year'),
-('A PhD Student at the second year','A PhD Student at least at the third year'),
-('A PhD Student at the second year','A PhD graduate'),
-('A PhD Student at least at the third year','A PhD graduate')
+('A PhD Student','A PhD Student in the second year'),
+('A PhD Student','A PhD Student at least in the third year'),
+('A PhD Student','A PhD graduate (Post-doc or working in the private sector)'),
+('A PhD Student in the first year','A PhD Student'),
+('A PhD Student in the first year','A PhD Student in the second year'),
+('A PhD Student in the first year','A PhD Student at least in the third year'),
+('A PhD Student in the second year','A PhD Student at least in the third year'),
+('A PhD Student in the second year','A PhD graduate (Post-doc or working in the private sector)'),
+('A PhD Student at least in the third year','A PhD graduate (Post-doc or working in the private sector)')
 ]
 
 def onehot(valuestring, values):
@@ -68,15 +75,17 @@ df = pd.read_csv(sys.argv[1])
 
 # parse the lines one by one
 for row in df.itertuples():
+    status = row[26]
     email = row[2].strip()
     name = row[4].strip()+' '+row[5].strip()
     level = row[6]
-    role = row[9] 
-    availability_time = scalar(row[10], [
+    field = row[7]
+    role = row[10] 
+    availability_time = scalar(row[11], [
         '1 to 3 hours', 
         '3 to 5 hours', 
         'more than 5 hours'])
-    availability_medium = onehot(row[11], [
+    availability_medium = onehot(row[12], [
         'Through phone calls',
         'Through face to face meetings',
         'Through social media',
@@ -84,7 +93,10 @@ for row in df.itertuples():
         'Through emails'])
 
     # "interests" are the answers to the final questions used for the matching
-    interests = [int(row[column][0]) for column in range(12, 21)]
+    try:
+        interests = [int(row[column][0]) for column in range(13, 22)]+[FIELDS.index(field)]
+    except:
+        interests = [int(row[column][0]) for column in range(13, 22)]+[len(FIELDS)]
 
     '''
     interests are transformed into a *normalized* vector of features to 
@@ -103,10 +115,12 @@ for row in df.itertuples():
         'features': features
         }
 
-    if role in ['Mentee', 'Both mentee and mentor', 'Mentor and Mentee (Only for PhD students)']:
-        people['mentee'].append(person)
-    if role in ['Mentor', 'Both mentee and mentor', 'Mentor and Mentee (Only for PhD students)']:
-        people['mentor'].append(person)
+    if role in ['Mentee (only master students and PhDs)', 'Mentor and Mentee (Only for PhDs)']:
+        if not status in [0,1]:
+            people['mentee'].append(person)
+    if role in ['Mentor (only PhDs and PhD graduates)', 'Mentor and Mentee (Only for PhDs)']:
+        if not status in [0,2]:
+            people['mentor'].append(person)
 
 # creating the matrix
 M = np.zeros((len(people['mentee']), len(people['mentor'])))

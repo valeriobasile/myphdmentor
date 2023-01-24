@@ -19,16 +19,27 @@ FIELDS = [
 PAIRS = [
 ('A master student','A PhD Student'),
 ('A master student','A PhD Student in the first year'),
+('A master student','A PhD Student in the second year'),
+('A master student','A PhD Student at least in the third year'),
+('A master student','A PhD graduate (Post-doc or working in the private sector)'),
 ('A PhD Student','A PhD Student'),
 ('A PhD Student','A PhD Student in the second year'),
 ('A PhD Student','A PhD Student at least in the third year'),
 ('A PhD Student','A PhD graduate (Post-doc or working in the private sector)'),
 ('A PhD Student in the first year','A PhD Student'),
-('A PhD Student in the first year','A PhD Student in the second year'),
 ('A PhD Student in the first year','A PhD Student at least in the third year'),
-('A PhD Student in the second year','A PhD Student at least in the third year'),
+('A PhD Student in the first year','A PhD graduate (Post-doc or working in the private sector)'),
+('A PhD Student in the first year','A PhD graduate (Post-doc or working in the private sector) (Post-doc or working in the private sector)'),
+('A PhD Student in the first year','A PhD graduate (Post-doc or working in the private sector), with less than three years of expertise'),
+('A PhD Student in the first year','A PhD graduate (Post-doc or working in the private sector), with 3+ years of expertise'),
 ('A PhD Student in the second year','A PhD graduate (Post-doc or working in the private sector)'),
-('A PhD Student at least in the third year','A PhD graduate (Post-doc or working in the private sector)')
+('A PhD Student in the second year','A PhD graduate (Post-doc or working in the private sector) (Post-doc or working in the private sector)'),
+('A PhD Student in the second year','A PhD graduate (Post-doc or working in the private sector), with less than three years of expertise'),
+('A PhD Student in the second year','A PhD graduate (Post-doc or working in the private sector), with 3+ years of expertise'),
+('A PhD Student at least in the third year','A PhD graduate (Post-doc or working in the private sector)'),
+('A PhD Student at least in the third year','A PhD graduate (Post-doc or working in the private sector) (Post-doc or working in the private sector)'),
+('A PhD Student at least in the third year','A PhD graduate (Post-doc or working in the private sector), with less than three years of expertise'),
+('A PhD Student at least in the third year','A PhD graduate (Post-doc or working in the private sector), with 3+ years of expertise'),
 ]
 
 def onehot(valuestring, values):
@@ -75,10 +86,11 @@ df = pd.read_csv(sys.argv[1])
 
 # parse the lines one by one
 for row in df.itertuples():
-    status = row[26]
+#    print (row)
+    status = row.AssignmentStatus
     email = row[2].strip()
-    name = row[4].strip()+' '+row[5].strip()
-    level = row[6]
+    name = row[26].strip()+' '+row[28].strip()
+    level = row[27]
     field = row[7]
     role = row[10] 
     availability_time = scalar(row[11], [
@@ -140,10 +152,11 @@ matching = {
     
 for e, o in zip(row_ind, col_ind):
     if M[e][o] > -1:
+        #print (e, len(people['mentor']))
         matching['mentee'].append(people['mentee'][e]['name'])
         matching['mentee email'].append(people['mentee'][e]['email'])
-        matching['mentor'].append(people['mentor'][e]['name'])
-        matching['mentor email'].append(people['mentor'][e]['email'])
+        matching['mentor'].append(people['mentor'][o]['name'])
+        matching['mentor email'].append(people['mentor'][o]['email'])
 
 matching_df = pd.DataFrame(matching)
 matching_df.to_csv("matching.csv", index=False)

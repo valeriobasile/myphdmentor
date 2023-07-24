@@ -16,12 +16,45 @@ FIELDS = [
 'Humanities (Literature, History, Philosophy etc)',
 'Design and architecture'
 ]
+
+LEVELS = {
+  'A master student': "m",
+  'Master student': "m",
+  'A PhD Student': "p",
+  'A PhD Student in the first year': "p1",
+  'A PhD Student in the second year': "p2",
+  'A PhD Student at least in the third year': "p3",
+  'A PhD student at least in the third year': "p3",
+  'A PhD graduate (Post-doc or working in the private sector)': "d",
+  'A PhD graduate (Post-doc or working in the private sector), with 3+ years of expertise': "d",
+  'A PhD graduate (Post-doc or working in the private sector) (Post-doc or working in the private sector)': "d",
+  'A PhD graduate (Post-doc or working in the private sector), with less than three years of expertise': "d"
+}
+
+PAIRS = [
+("m", "p"),
+("m", "p1"),
+("m", "p2"),
+("m", "p3"),
+("m", "d"),
+("p", "p"),
+("p", "p2"),
+("p", "p3"),
+("p", "d"),
+("p1", "p"),
+("p1", "p3"),
+("p1", "d"),
+("p2", "d"),
+("p3", "d")
+]
+'''
 PAIRS = [
 ('A master student','A PhD Student'),
 ('A master student','A PhD Student in the first year'),
 ('A master student','A PhD Student in the second year'),
 ('A master student','A PhD Student at least in the third year'),
 ('A master student','A PhD graduate (Post-doc or working in the private sector)'),
+('A master student','A PhD graduate (Post-doc or working in the private sector), with 3+ years of expertise'),
 ('A PhD Student','A PhD Student'),
 ('A PhD Student','A PhD Student in the second year'),
 ('A PhD Student','A PhD Student at least in the third year'),
@@ -41,7 +74,7 @@ PAIRS = [
 ('A PhD Student at least in the third year','A PhD graduate (Post-doc or working in the private sector), with less than three years of expertise'),
 ('A PhD Student at least in the third year','A PhD graduate (Post-doc or working in the private sector), with 3+ years of expertise'),
 ]
-
+'''
 def onehot(valuestring, values):
     '''
     A function to translate multiple-value items into one-hot encoded vectors.
@@ -63,7 +96,7 @@ def similarity(mentor, mentee, weightvector):
     '''
     if mentor['email']==mentee['email']:
         return -1.0
-    if not (mentee['level'],mentor['level']) in PAIRS:
+    if not (LEVELS[mentee['level']],LEVELS[mentor['level']]) in PAIRS:
         return -1.0
     return 1 - cosine(mentor['features'], mentee['features'], weightvector)
 
